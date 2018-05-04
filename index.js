@@ -5,8 +5,8 @@ const net = require('net')
 
 const ipAddress = '10.42.13.101'
 
-// var client = new net.Socket()
-// client.connect(5250, ipAddress)
+var client = new net.Socket()
+client.connect(5250, ipAddress)
 
 let opts = new ConnectionOptions(ipAddress)
 // opts.debug = true
@@ -202,25 +202,25 @@ function runTestPass () {
     .then(ColourFadeTest)
     .then(() => MultiplePlayTest('GREEN', 20))
     .then(() => console.log('INFO: Finished pass'))
-    .then(() => setTimeout(runTestPass, 20 * 1000)) // every minute
+    .then(() => setTimeout(runTestPass, 60 * 1000)) // every minute
 }
 
-// let tcPassCount = 0
-// function timecodePass () {
-//   console.log('INFO: Reconfigure timecode', (++tcPassCount))
+let tcPassCount = 0
+function timecodePass () {
+  console.log('INFO: Reconfigure timecode', (++tcPassCount))
 
-//   if (tcPassCount % 3 === 0) {
-//     client.write('CLEAR 1-10\r\n')
-//     client.write('TIMECODE 1 SOURCE CLEAR\r\n')
-//   } else if (tcPassCount % 3 === 1) {
-//     client.write('TIMECODE 1 SOURCE LAYER 10\r\n')
-//   } else {
-//     client.write('PLAY 1-10 DECKLINK 1\r\n')
-//   }
+  if (tcPassCount % 3 === 0) {
+    client.write('CLEAR 1-10\r\n')
+    client.write('TIMECODE 1 SOURCE CLEAR\r\n')
+  } else if (tcPassCount % 3 === 1) {
+    client.write('TIMECODE 1 SOURCE LAYER 10\r\n')
+  } else {
+    client.write('PLAY 1-10 DECKLINK 1\r\n')
+  }
 
-//   console.log('INFO: Timecode configured')
-//   setTimeout(timecodePass, 90 * 1000)
-// }
+  console.log('INFO: Timecode configured')
+  setTimeout(timecodePass, 90 * 1000)
+}
 
 getTime(1).then(tc => {
   console.log('INFO: Start time', tc.toString(), '(' + tc.frameCount + ' frames)')
@@ -235,6 +235,6 @@ getTime(1).then(tc => {
   connection.scheduleClear()
     .then(() => console.log('INFO: Cleared schedule'))
     .then(ScheduleTimesOver24Hours)
-    // .then(timecodePass)
+    .then(timecodePass)
     .then(runTestPass)
 })
