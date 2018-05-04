@@ -1,8 +1,14 @@
 const { CasparCG, AMCP, ConnectionOptions } = require('casparcg-connection')
 const Timecode = require('smpte-timecode')
 const rgbHex = require('rgb-hex')
+const net = require('net')
 
-let opts = new ConnectionOptions('10.42.13.100')
+const ipAddress = '10.42.13.101'
+
+// var client = new net.Socket()
+// client.connect(5250, ipAddress)
+
+let opts = new ConnectionOptions(ipAddress)
 // opts.debug = true
 
 let connection = new CasparCG(opts)
@@ -31,7 +37,7 @@ class CmdWrapper {
           console.log('ERROR: Command timed out:', this._token)
           this._completed = true
         }
-      }, frameDiff + 1000)
+      }, frameDiff + 5000)
     }
   }
 
@@ -70,10 +76,11 @@ class CmdWrapper {
 function ScheduleTimer (time) {
   const cmd = new AMCP.TimeCommand({channel: 1})
   const expected = time.frameCount
+  const compensation = 1 // expected to be a frame early, to make the change visible on the next frame
 
   connection.scheduleSet(time.toString(), cmd).then(r => {
     const resTime = new Timecode(r.response.data, 25).frameCount
-    const diff = resTime - expected
+    const diff = resTime - expected + compensation
     if (diff !== 0) {
       console.log('ERROR: Time command executed', diff, 'frames late')
     } else {
@@ -119,7 +126,7 @@ function ColourFadeTest () {
       console.log('INFO: Starting colour fade test')
 
       const count = 5000
-      const spacing = 10
+      const spacing = 3
 
       const cmds = []
       // Flood server with 1000s of commands
@@ -144,7 +151,7 @@ function ColourFadeTest () {
             cmds[i].cancel()
           }, i * spacing)
         }
-      }, count * spacing * 0.2)
+      }, count * spacing) // need to wait for them to have all been scheduled
 
       setTimeout(() => {
         console.log('INFO: colour fade completed')
@@ -152,7 +159,7 @@ function ColourFadeTest () {
         cmds.forEach(e => e.invalidate())
 
         resolve()
-      }, count * spacing + 2000)
+      }, count * spacing + 4000 + 2000)
     })
   })
 }
@@ -195,8 +202,25 @@ function runTestPass () {
     .then(ColourFadeTest)
     .then(() => MultiplePlayTest('GREEN', 20))
     .then(() => console.log('INFO: Finished pass'))
-    .then(() => setTimeout(runTestPass, 60 * 1000)) // every minute
+    .then(() => setTimeout(runTestPass, 20 * 1000)) // every minute
 }
+
+// let tcPassCount = 0
+// function timecodePass () {
+//   console.log('INFO: Reconfigure timecode', (++tcPassCount))
+
+//   if (tcPassCount % 3 === 0) {
+//     client.write('CLEAR 1-10\r\n')
+//     client.write('TIMECODE 1 SOURCE CLEAR\r\n')
+//   } else if (tcPassCount % 3 === 1) {
+//     client.write('TIMECODE 1 SOURCE LAYER 10\r\n')
+//   } else {
+//     client.write('PLAY 1-10 DECKLINK 1\r\n')
+//   }
+
+//   console.log('INFO: Timecode configured')
+//   setTimeout(timecodePass, 90 * 1000)
+// }
 
 getTime(1).then(tc => {
   console.log('INFO: Start time', tc.toString(), '(' + tc.frameCount + ' frames)')
@@ -211,5 +235,6 @@ getTime(1).then(tc => {
   connection.scheduleClear()
     .then(() => console.log('INFO: Cleared schedule'))
     .then(ScheduleTimesOver24Hours)
+    // .then(timecodePass)
     .then(runTestPass)
 })
